@@ -111,7 +111,7 @@ class GraphConstructor:
         # Replace non-alphanumeric characters with underscores
         return re.sub(r'\W+', '_', label)
 
-    def get_embeddings_from_df(self, df, node2vec_epochs=10):
+    def get_embeddings_from_df(self, df, node2vec_epochs=10, dim=128, walk_length=80):
         # Prepare to collect embeddings
         student_embeddings = {}
         semesters = sorted(df['student.semester_desc'].unique())
@@ -135,7 +135,8 @@ class GraphConstructor:
             pickle.dump(edges, open(f'{self.KG_path}/edges_{semester}.pkl', 'wb'))
 
             # Store embeddings
-            student_embeddings[semester] = self.get_semester_embeddings(edges, node_dict, semester, node2vec_epochs)
+            student_embeddings[semester] = self.get_semester_embeddings(edges, node_dict, semester, node2vec_epochs, 
+                                                                        dim=dim, walk_length=walk_length)
 
         # Save embeddings
         with open(f'{self.KG_path}/student_embeddings.pkl', 'wb') as f:
@@ -143,7 +144,7 @@ class GraphConstructor:
 
         return student_embeddings
     
-    def get_embeddings_from_saved_files(self, df, node_filename, edge_filename, node2vec_epochs=10):
+    def get_embeddings_from_saved_files(self, df, node_filename, edge_filename, node2vec_epochs=10, dim=128, walk_length=80):
         student_embeddings = {}
         semesters = sorted(df['student.semester_desc'].unique())
         for semester in semesters:
@@ -153,7 +154,8 @@ class GraphConstructor:
             loaded_edges = pickle.load(open(f'{edge_filename}_{semester}.pkl', 'rb'))
 
             # Store embeddings
-            student_embeddings[semester] = self.get_semester_embeddings(loaded_edges, loaded_node_dict, semester, node2vec_epochs)
+            student_embeddings[semester] = self.get_semester_embeddings(loaded_edges, loaded_node_dict, 
+                                                                        semester, node2vec_epochs, dim=dim, walk_length=walk_length)
 
         # Save embeddings
         with open(f'{self.KG_path}/student_embeddings.pkl', 'wb') as f:
@@ -169,7 +171,7 @@ class GraphConstructor:
         graph = Graph(unweighted_edges + weighted_edges, directed=False, weighted=True)
         return graph
     
-    def get_semester_embeddings(self, edges, nodes, semester, node2vec_epochs=10):
+    def get_semester_embeddings(self, edges, nodes, semester, node2vec_epochs=10, dim=128, walk_length=80):
         # Separate weighted and unweighted edges
         weighted_edges = [(edge[0], edge[1], edge[2]) for edge in edges if len(edge) == 3]
         unweighted_edges = [(edge[0], edge[1], 1.0) for edge in nodes if len(edge) == 2]
@@ -180,7 +182,7 @@ class GraphConstructor:
 
         # Train Node2Vec
         print(f"Training Node2Vec for semester {semester}...")
-        n2v = Node2Vec(graph, dim=128, walk_length=80, window=10, p=1, q=1, workers=4)
+        n2v = Node2Vec(graph, dim=dim, walk_length=walk_length, window=10, p=1, q=1, workers=4)
 
         n2v.train(epochs=node2vec_epochs)
 
